@@ -1,16 +1,26 @@
 import requests
 import pandas as pd
+import numpy as np
 from datetime import datetime
 import pytz
 import json
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 # Load credentials from JSON
 with open('../credentials.json') as f:
     credentials = json.load(f)
+service_account_info = credentials['google']['service_account']
 
-# Extracting credentials
+# Define the scope
+scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+
+# Load credentials
+creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
+client = gspread.authorize(creds)
 auth_clickup = credentials['clickup']['api_key']
 team_id = credentials['team']['id']
+time_entries_tab = credentials['google']['sheets_links']["time_entries_tab"]
 time_local = 'Europe/Moscow'  # Assuming timezone
 
 # Convert to POSIX time
@@ -25,8 +35,6 @@ start_posix = to_posix(datetime.now(pytz.timezone(time_local)) - pd.Timedelta(we
 def get_team_members(auth_clickup, team_id):
     url = f"https://api.clickup.com/api/v2/team/{team_id}"  # Corrected URL
     response = requests.get(url, headers={"Authorization": auth_clickup})
-    print(response.json())  # Print the response for verification
-    # You might need to adjust the following line based on the actual structure
     members = response.json().get('members', [])
     return ','.join([member['user']['id'] for member in members])
 
@@ -40,5 +48,49 @@ def get_time_entries(team_id, start_posix, now_posix, members_id, auth_clickup):
 
 time_entries_df = get_time_entries(team_id, start_posix, now_posix, members_id, auth_clickup)
 
-# Print the DataFrame for verification
-print(time_entries_df.head())  # Print first few rows for checking
+# Convert to datetime
+time_entries_df['start'] = pd.to_datetime(time_entries_df['start'].astype(int), unit='ms')
+time_entries_df['end'] = pd.to_datetime(time_entries_df['end'].astype(int), unit='ms')
+
+# Convert 'duration' to numeric (float), errors='coerce' will set non-numeric values to NaN
+time_entries_df['duration'] = pd.to_numeric(time_entries_df['duration'], errors='coerce')
+
+# Now perform the division to convert milliseconds to hours
+time_entries_df['duration_hours'] = time_entries_df['duration'] / 3600000
+
+# Now convert to strings
+time_entries_df['start'] = time_entries_df['start'].dt.strftime('%Y-%m-%d %H:%M:%S')
+time_entries_df['end'] = time_entries_df['end'].dt.strftime('%Y-%m-%d %H:%M:%S')
+
+# Add 'dt_load' column with the current timestamp
+time_entries_df['dt_load'] = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+
+# Replace NaN with None
+time_entries_df = time_entries_df.where(pd.notna(time_entries_df), None)
+
+time_entries_df = time_entries_df.rename(columns={
+    'id': 'ID',
+    'task_url': 'Task URL',
+    'task.name': 'Task Name',
+    'task.custom_id': 'Task Custom ID',
+    'task.status.status': 'Task Status',
+    'user.username': 'Team Member',
+    'start': 'Start',
+    'end': 'End',
+    'duration_hours': 'Hours',
+})
+
+# # Selecting the columns you need (adjust the list as per your requirements)
+final_df = time_entries_df[['ID', 'Task URL', 'Task Name', 'Task Custom ID', 'Task Status', 'Team Member',
+                            'Start', 'End', 'Hours', 'dt_load']]
+
+# Convert DataFrame to list of lists (each sublist is a row)
+data_to_write = final_df.values.tolist()
+
+# Open the Google Sheet (replace 'your_sheet_name' with the actual name of your sheet)
+sheet = client.open('TEST Database - time tracking').worksheet(time_entries_tab)  # or use .worksheet('worksheet_name')
+
+# # Update the Google Sheet starting at cell A2
+sheet.update('A2', data_to_write)
+
+# print(time_entries_df.columns)
