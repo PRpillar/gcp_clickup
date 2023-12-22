@@ -33,12 +33,19 @@ start_posix = to_posix(datetime.now(pytz.timezone(time_local)) - pd.Timedelta(we
 
 # Get team members from ClickUp
 def get_team_members(auth_clickup, team_id):
-    url = f"https://api.clickup.com/api/v2/team/{team_id}"  # Corrected URL
-    response = requests.get(url, headers={"Authorization": auth_clickup})
-    members = response.json().get('members', [])
-    return ','.join([member['user']['id'] for member in members])
+    try:
+        url = f"https://api.clickup.com/api/v2/team/{team_id}"
+        response = requests.get(url, headers={"Authorization": auth_clickup})
+        response.raise_for_status()
+        members = response.json().get('team', {}).get('members', [])
+        return ','.join([str(member['user']['id']) for member in members])
+    except requests.RequestException as e:
+        print(f"Error fetching team members: {e}")
+        return ''
 
 members_id = get_team_members(auth_clickup, team_id)
+
+print(members_id)
 
 # Get time entries from ClickUp
 def get_time_entries(team_id, start_posix, now_posix, members_id, auth_clickup):
@@ -88,7 +95,7 @@ final_df = time_entries_df[['ID', 'Task URL', 'Task Name', 'Task Custom ID', 'Ta
 data_to_write = final_df.values.tolist()
 
 # Open the Google Sheet (replace 'your_sheet_name' with the actual name of your sheet)
-sheet = client.open('TEST Database - time tracking').worksheet(time_entries_tab)  # or use .worksheet('worksheet_name')
+sheet = client.open('TEST ClickUp').worksheet(time_entries_tab)  # or use .worksheet('worksheet_name')
 
 # # Update the Google Sheet starting at cell A2
 sheet.update('A2', data_to_write)
