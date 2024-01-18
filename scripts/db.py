@@ -1,3 +1,4 @@
+import os
 import requests
 import pandas as pd
 import numpy as np
@@ -7,36 +8,6 @@ import json
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
 
-# Load credentials from JSON
-with open('../credentials.json') as f:
-    credentials = json.load(f)
-service_account_info = credentials['google']['service_account']
-team_name = credentials['team']['name']
-
-# Define the scope
-scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
-
-# Load credentials
-creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
-client = gspread.authorize(creds)
-auth_clickup = credentials['clickup']['api_key']
-team_id = credentials['team']['id']
-time_entries_tab = credentials['google']['sheets_links']["time_entries_tab"]
-time_local = 'Europe/Moscow'
-sheet = client.open('TEST ClickUp').worksheet(time_entries_tab)
-
-# Read existing data from Google Sheets into DataFrame
-existing_data = sheet.get_all_values()
-headers = existing_data.pop(0)
-existing_df = pd.DataFrame(existing_data, columns=headers)
-
-# Convert to POSIX time
-def to_posix(dt):
-    return int(dt.timestamp() * 1000)
-
-# Current time and time 10 weeks ago in POSIX format
-now_posix = to_posix(datetime.now(pytz.timezone(time_local)))
-start_posix = to_posix(datetime.now(pytz.timezone(time_local)) - pd.Timedelta(weeks=10))
 
 # Get team members from ClickUp
 def get_team_members(auth_clickup, team_id):
@@ -73,11 +44,13 @@ def get_folders(team_id, auth_clickup):
     folders = pd.json_normalize(response.json(), record_path=['folders'])  # Update path as per API response
     return folders
 
+
 # Get time entries from ClickUp
 def get_time_entries(team_id, start_posix, now_posix, members_id, auth_clickup):
     url = f"https://api.clickup.com/api/v2/team/{team_id}/time_entries?start_date={start_posix}&end_date={now_posix}&assignee={members_id}"
     response = requests.get(url, headers={"Authorization": auth_clickup})
     return pd.json_normalize(response.json(), record_path=['data'])
+
 
 def shorten_name(full_name):
     parts = full_name.split()
@@ -85,6 +58,38 @@ def shorten_name(full_name):
         return f'{parts[0][0]} {parts[-1]}'
     else:
         return full_name
+
+
+# Convert to POSIX time
+def to_posix(dt):
+    return int(dt.timestamp() * 1000)
+
+
+# Define the scope
+scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
+
+
+# Load credentials
+auth_clickup = os.getenv('CLICKUP_API_KEY') or json.load(open('../credentials.json'))['clickup']['api_key']
+service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT') or json.load(open('../credentials.json'))['google']['service_account']
+team_id = os.getenv('TEAM_ID') or json.load(open('../credentials.json'))['team']['id']
+creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
+client = gspread.authorize(creds)
+team_name = "PRpillar"
+time_entries_tab = "TT DB"
+time_local = 'Europe/Moscow'
+sheet = client.open('TEST ClickUp').worksheet(time_entries_tab)
+
+# Read existing data from Google Sheets into DataFrame
+existing_data = sheet.get_all_values()
+headers = existing_data.pop(0)
+existing_df = pd.DataFrame(existing_data, columns=headers)
+
+
+# Current time and time 10 weeks ago in POSIX format
+now_posix = to_posix(datetime.now(pytz.timezone(time_local)))
+start_posix = to_posix(datetime.now(pytz.timezone(time_local)) - pd.Timedelta(weeks=10))
+
 
 # Fetch members, tasks, and spaces data
 members_id = get_team_members(auth_clickup, team_id)
