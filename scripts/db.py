@@ -71,8 +71,13 @@ scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis
 
 # Load credentials
 auth_clickup = os.getenv('CLICKUP_API_KEY') or json.load(open('../credentials.json'))['clickup']['api_key']
-service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT') or json.load(open('../credentials.json'))['google']['service_account']
 team_id = os.getenv('TEAM_ID') or json.load(open('../credentials.json'))['team']['id']
+service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT') or json.load(open('../credentials.json'))['google']['service_account']
+
+# Check if the environment variable is a string and parse it as JSON
+if service_account_info and isinstance(service_account_info, str):
+    google_service_account_info = json.loads(service_account_info)
+
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 team_name = "PRpillar"
