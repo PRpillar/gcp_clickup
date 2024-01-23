@@ -153,7 +153,6 @@ column_order = ['ID', 'Project', 'Space', 'Folder', 'List', 'Task', 'Team Member
 
 final_df = final_df[column_order]
 final_df['Team Member'] = final_df['Team Member'].apply(shorten_name)
-final_df['Hours'] = pd.to_numeric(final_df['Hours'], errors='coerce')
 final_df = final_df.sort_values(by=['Team Member', 'Start'], ascending=[True, False])
 
 # Merge (upsert) the new data with existing data
@@ -168,6 +167,7 @@ for column in merged_df.columns:
 # Drop the temporary columns
 merged_df.drop(columns=[col for col in merged_df.columns if '_new' in col or '_existing' in col], inplace=True)
 merged_df = merged_df[column_order]
+merged_df['Hours'] = pd.to_numeric(merged_df['Hours'], errors='coerce')
 merged_df = merged_df.sort_values(by=['Team Member', 'Start'], ascending=[True, False])
 
 # Convert DataFrame to list of lists (each sublist is a row)
