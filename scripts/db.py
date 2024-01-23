@@ -76,7 +76,7 @@ service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT') or json.load(open('..
 
 # Check if the environment variable is a string and parse it as JSON
 if service_account_info and isinstance(service_account_info, str):
-    google_service_account_info = json.loads(service_account_info)
+    service_account_info = json.loads(service_account_info)
 
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
