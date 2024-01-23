@@ -153,6 +153,7 @@ column_order = ['ID', 'Project', 'Space', 'Folder', 'List', 'Task', 'Team Member
 
 final_df = final_df[column_order]
 final_df['Team Member'] = final_df['Team Member'].apply(shorten_name)
+final_df['Hours'] = pd.to_numeric(final_df['Hours'], errors='coerce')
 final_df = final_df.sort_values(by=['Team Member', 'Start'], ascending=[True, False])
 
 # Merge (upsert) the new data with existing data
