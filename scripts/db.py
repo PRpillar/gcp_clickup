@@ -89,6 +89,7 @@ sheet = client.open('TEST ClickUp').worksheet(time_entries_tab)
 existing_data = sheet.get_all_values()
 headers = existing_data.pop(0)
 existing_df = pd.DataFrame(existing_data, columns=headers)
+existing_df['Hours'] = pd.to_numeric(existing_df['Hours'], errors='coerce')
 
 
 # Current time and time 10 weeks ago in POSIX format
@@ -162,7 +163,11 @@ merged_df = pd.merge(existing_df, final_df, on='ID', how='outer', suffixes=('_ex
 for column in merged_df.columns:
     if '_existing' in column:
         base_column = column.replace('_existing', '')
-        merged_df[base_column] = merged_df[column].combine_first(merged_df[f'{base_column}_new'])
+        # Special handling for 'Hours' to preserve existing numeric values
+        if base_column == 'Hours':
+            merged_df[base_column] = merged_df[f'{base_column}_existing'].combine_first(merged_df[f'{base_column}_new'])
+        else:
+            merged_df[base_column] = merged_df[column].combine_first(merged_df[f'{base_column}_new'])
 
 # Drop the temporary columns
 merged_df.drop(columns=[col for col in merged_df.columns if '_new' in col or '_existing' in col], inplace=True)
