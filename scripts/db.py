@@ -83,7 +83,7 @@ client = gspread.authorize(creds)
 team_name = "PRpillar"
 time_entries_tab = "TT DB"
 time_local = 'Europe/Moscow'
-sheet = client.open('TEST ClickUp').worksheet(time_entries_tab)
+sheet = client.open('Time Tracking ClickUp Python').worksheet(time_entries_tab)
 
 # Read existing data from Google Sheets into DataFrame
 existing_data = sheet.get_all_values()
