@@ -73,7 +73,9 @@ auth_clickup = os.getenv('CLICKUP_API_KEY') or json.load(open('../credentials.js
 list_id = '54932029'  # Replace with your list ID
 service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT') or json.load(open('../credentials.json'))['google']['service_account']
 
-
+# Check if the environment variable is a string and parse it as JSON
+if service_account_info and isinstance(service_account_info, str):
+    service_account_info = json.loads(service_account_info)
 
 # List of columns to keep
 columns_to_keep = [
