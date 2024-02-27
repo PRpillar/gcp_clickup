@@ -93,10 +93,15 @@ approval_tasks_df = tasks_df[tasks_df['status.status'] == 'approval']
 # Process tasks filtered by status
 processed_tasks_df = process_custom_fields(approval_tasks_df)
 
-# This avoids KeyErrors if some custom fields are missing for some tasks
-final_df = processed_tasks_df.reindex(columns=columns_to_keep)
+# Convert specific columns to numeric values. Errors='coerce' will turn non-convertible values to NaN, which Google Sheets interprets as empty cells.
+processed_tasks_df['Reviews'] = pd.to_numeric(processed_tasks_df['Reviews'], errors='coerce')
+processed_tasks_df['Article'] = pd.to_numeric(processed_tasks_df['Article'], errors='coerce')
+processed_tasks_df['Listing price from'] = pd.to_numeric(processed_tasks_df['Listing price from'], errors='coerce')
 
-# Convert DataFrame to a list of lists, including the header
+# This avoids KeyErrors if some custom fields are missing for some tasks
+final_df = processed_tasks_df.reindex(columns=columns_to_keep).fillna('')
+
+# Convert DataFrame to a list of lists, including the header, for Google Sheets update
 values_to_update = [final_df.columns.tolist()] + final_df.values.tolist()
 
 # Writing the data into a Google Sheets file
@@ -105,5 +110,8 @@ client = gspread.authorize(creds)
 websites_tab = "Websites"
 sheet = client.open('Popular media by forex/CFD and Crypto').worksheet(websites_tab)
 
-# Update Google Sheet starting from cell A2; use named arguments for clarity and future-proofing
+# Clear existing contents of the sheet before updating with new data
+sheet.clear()
+
+# Update Google Sheet starting from cell A1; use named arguments for clarity and future-proofing
 sheet.update(values=values_to_update, range_name='A1')
