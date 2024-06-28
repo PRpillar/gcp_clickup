@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest  # Specifies the runner environment
 
     env:
-      CLICKUP_API_KEY: ${{ secrets.CLICKUP_API_KEY_2 }}
+      CLICKUP_API_KEY_2: ${{ secrets.CLICKUP_API_KEY_2 }}
       GOOGLE_SERVICE_ACCOUNT: ${{ secrets.GOOGLE_SERVICE_ACCOUNT }}
 
     steps:
