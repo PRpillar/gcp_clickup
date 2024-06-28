@@ -165,3 +165,8 @@ credentials.json
 old_db.py
 db_test.py
 *.csv
+scripts/brands.py
+scripts/delete_tasks.py
+scripts/resumes.py
+scripts/tasks.py
+scripts/website_response.py
