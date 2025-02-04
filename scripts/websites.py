@@ -2,9 +2,12 @@ import os
 import requests
 import pandas as pd
 import json
+import time
 
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
+from gspread.exceptions import APIError
+
 
 def get_all_tasks_from_list(list_id, auth_clickup):
     all_tasks = []  # List to store all tasks across pages
@@ -47,6 +50,7 @@ def process_custom_fields(tasks_df):
 
     custom_fields_df = pd.DataFrame(custom_fields_data)
     return tasks_df.merge(custom_fields_df, on='id')
+
 
 # Define the scope
 scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
@@ -91,10 +95,32 @@ values_to_update = [final_df.columns.tolist()] + final_df.values.tolist()
 creds = ServiceAccountCredentials.from_json_keyfile_dict(service_account_info, scope)
 client = gspread.authorize(creds)
 websites_tab = "Websites"
-sheet = client.open('Popular media by forex/CFD and Crypto').worksheet(websites_tab)
 
-# Clear existing contents of the sheet before updating with new data
-sheet.clear()
+# Set up retry parameters
+max_retries = 5
+delay = 2  # initial delay in seconds
 
-# Update Google Sheet starting from cell A1; use named arguments for clarity and future-proofing
-sheet.update(values=values_to_update, range_name='A1')
+for attempt in range(max_retries):
+    try:
+        # Try to open the spreadsheet and access the desired worksheet
+        sheet = client.open('Popular media by forex/CFD and Crypto').worksheet(websites_tab)
+        
+        # Clear existing contents of the sheet before updating with new data
+        sheet.clear()
+        
+        # Update Google Sheet starting from cell A1
+        sheet.update(values=values_to_update, range_name='A1')
+        
+        print("Google Sheet updated successfully.")
+        break  # Exit the loop if everything was successful.
+    except APIError as e:
+        # Check if the error message indicates a 503 Service Unavailable
+        if '503' in str(e):
+            print(f"Attempt {attempt+1}/{max_retries}: Google Sheets service unavailable. Retrying in {delay} seconds...")
+            time.sleep(delay)
+            delay *= 2  # Exponential backoff
+        else:
+            # If it's not a 503 error, re-raise the exception.
+            raise
+else:
+    raise Exception("Failed to update Google Sheets after several retries.")
