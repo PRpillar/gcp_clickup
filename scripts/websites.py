@@ -25,6 +25,10 @@ def get_all_tasks_from_list(list_id, auth_clickup):
 
 
 def process_custom_fields(tasks_df):
+    # Handle empty DataFrame case
+    if tasks_df.empty:
+        return tasks_df
+    
     custom_fields_data = []
 
     for _, task in tasks_df.iterrows():
