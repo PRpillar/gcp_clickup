@@ -22,6 +22,10 @@ def get_all_tasks_from_list(list_id, auth_clickup):
 
 
 def process_custom_fields(tasks_df):
+    # Handle empty DataFrame case
+    if tasks_df.empty:
+        return tasks_df
+    
     custom_fields_data = []
 
     for _, task in tasks_df.iterrows():
@@ -64,7 +68,7 @@ if service_account_info and isinstance(service_account_info, str):
 
 # List of columns to keep
 columns_to_keep = [
-    "id", "name", "Reviews", "Article", "Listing price from", 
+    "id", "name", "Media Reviews", "Article", "Listing price from", 
     "Payment frequency", "Example Reviews", "Example Articles", 
     "Example Listing", "Update", "Media Kit", "Comments Media", "Publishing features",
     "For Task Generation", "Создание аккаунтов",
@@ -76,10 +80,15 @@ tasks_df = get_all_tasks_from_list(list_id, auth_clickup)
 # Process tasks filtered by status
 processed_tasks_df = process_custom_fields(tasks_df)
 
-# Convert specific columns to numeric values. Errors='coerce' will turn non-convertible values to NaN, which Google Sheets interprets as empty cells.
-processed_tasks_df['Reviews'] = pd.to_numeric(processed_tasks_df['Reviews'], errors='coerce')
-processed_tasks_df['Article'] = pd.to_numeric(processed_tasks_df['Article'], errors='coerce')
-processed_tasks_df['Listing price from'] = pd.to_numeric(processed_tasks_df['Listing price from'], errors='coerce')
+# Handle case when there are no tasks to process
+if not processed_tasks_df.empty:
+    # Convert specific columns to numeric values. Errors='coerce' will turn non-convertible values to NaN, which Google Sheets interprets as empty cells.
+    if 'Reviews' in processed_tasks_df.columns:
+        processed_tasks_df['Reviews'] = pd.to_numeric(processed_tasks_df['Reviews'], errors='coerce')
+    if 'Article' in processed_tasks_df.columns:
+        processed_tasks_df['Article'] = pd.to_numeric(processed_tasks_df['Article'], errors='coerce')
+    if 'Listing price from' in processed_tasks_df.columns:
+        processed_tasks_df['Listing price from'] = pd.to_numeric(processed_tasks_df['Listing price from'], errors='coerce')
 
 # This avoids KeyErrors if some custom fields are missing for some tasks
 final_df = processed_tasks_df.reindex(columns=columns_to_keep).fillna('')
