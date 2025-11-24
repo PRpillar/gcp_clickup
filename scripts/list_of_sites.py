@@ -13,7 +13,26 @@ def get_all_tasks_from_list(list_id, auth_clickup):
         # Include subtasks and closed tasks in the request
         url = f"https://api.clickup.com/api/v2/list/{list_id}/task?archived=false&subtasks=true&include_closed=true&page={page}"
         response = requests.get(url, headers={"Authorization": auth_clickup})
-        tasks = response.json().get('tasks', [])
+        
+        # Check if the request was successful
+        if response.status_code != 200:
+            print(f"Error: API request failed with status code {response.status_code}")
+            print(f"Response text: {response.text}")
+            raise Exception(f"ClickUp API request failed with status {response.status_code}: {response.text}")
+        
+        # Check if response has content before trying to parse JSON
+        if not response.text.strip():
+            print("Error: Empty response from API")
+            break
+            
+        try:
+            response_data = response.json()
+        except requests.exceptions.JSONDecodeError as e:
+            print(f"Error: Failed to parse JSON response: {e}")
+            print(f"Response text: {response.text}")
+            raise Exception(f"Failed to parse API response as JSON: {e}")
+        
+        tasks = response_data.get('tasks', [])
         if not tasks:  # Break the loop if no more tasks are returned
             break
         all_tasks.extend(tasks)  # Add the tasks from the current page to the list
@@ -56,9 +75,25 @@ def process_custom_fields(tasks_df):
 scope = ['https://www.googleapis.com/auth/spreadsheets', 'https://www.googleapis.com/auth/drive']
 
 # Load credentials
-auth_clickup = os.getenv('CLICKUP_API_KEY_2') or json.load(open('../credentials.json'))['clickup']['api_key_2']
+clickup_api_key = os.getenv('CLICKUP_API_KEY_2')
+if not clickup_api_key:
+    try:
+        clickup_api_key = json.load(open('../credentials.json'))['clickup']['api_key_2']
+    except (FileNotFoundError, KeyError) as e:
+        raise Exception(f"ClickUp API key not found in environment variables or credentials file: {e}")
+
+if not clickup_api_key:
+    raise Exception("ClickUp API key is empty or not set")
+
+auth_clickup = clickup_api_key
 list_id = '54932029'  # Replace with your list ID
-service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT') or json.load(open('../credentials.json'))['google']['service_account']
+
+service_account_info = os.getenv('GOOGLE_SERVICE_ACCOUNT')
+if not service_account_info:
+    try:
+        service_account_info = json.load(open('../credentials.json'))['google']['service_account']
+    except (FileNotFoundError, KeyError) as e:
+        raise Exception(f"Google service account info not found in environment variables or credentials file: {e}")
 google_sheet_url = 'https://docs.google.com/spreadsheets/d/1o4w3ppIcA8iF-4vx6LCRiHFpVI1fHC7dwe7IiQoOb08/edit?gid=0#gid=0'
 sheet_websites = 'List of Sites'
 
@@ -75,7 +110,15 @@ columns_to_keep = [
 ]
 
 # Apply the function to tasks DataFrame
+print(f"Fetching tasks from ClickUp list ID: {list_id}")
+print(f"Using API key (first 10 chars): {auth_clickup[:10]}...")
 tasks_df = get_all_tasks_from_list(list_id, auth_clickup)
+print(f"Successfully fetched {len(tasks_df)} tasks")
+
+# Check if we have any tasks to process
+if tasks_df.empty:
+    print("No tasks found in the list. Exiting.")
+    exit(0)
 
 # Process tasks filtered by status
 processed_tasks_df = process_custom_fields(tasks_df)
